@@ -1,9 +1,10 @@
-import { spawn } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { once } from 'node:events';
 import { createWriteStream } from 'node:fs';
 import { access, mkdir, mkdtemp, rename, rm, writeFile } from 'node:fs/promises';
 import { dirname, extname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { tmpdir } from 'node:os';
 import { randomUUID } from 'node:crypto';
 import { setImmediate as yieldTask } from 'node:timers/promises';
 import { createCaptionScript } from './captions.mjs';
@@ -15,6 +16,20 @@ const ANALYSIS_SECONDS = 120;
 const SAMPLE_RATE = 8000;
 const FFMPEG = 'ffmpeg';
 const FFPROBE = 'ffprobe';
+
+// FFmpeg 7.1 introduced the generic "-/<option> <file>" form, and 9.0 removed
+// -filter_complex_script. Probe the local binary once and cache what it accepts.
+let complexGraphFlag;
+function complexFilterGraphFlag() {
+  if (!complexGraphFlag) {
+    const probe = spawnSync(FFMPEG, ['-hide_banner', '-/filter_complex',
+      join(tmpdir(), 'eac-design-world-graph-probe.txt'), '-f', 'null', '-'],
+      { windowsHide: true, timeout: 5000 });
+    const unsupported = Boolean(probe.error) || /Unrecognized option/i.test(String(probe.stderr));
+    complexGraphFlag = unsupported ? '-filter_complex_script' : '-/filter_complex';
+  }
+  return complexGraphFlag;
+}
 
 function abortError() {
   return Object.assign(new Error('Media operation aborted'), { name: 'AbortError', code: 'ABORT_ERR' });
@@ -549,7 +564,7 @@ export async function renderTimeline({ project, outputPath, onProgress, signal }
     }
     const script = join(job.temporary, 'filters.txt');
     await writeFile(script, filters.join(';\n'), { encoding: 'utf8', signal });
-    args.push('-filter_complex_script', script, '-map', `[${previous}]`);
+    args.push(complexFilterGraphFlag(), script, '-map', `[${previous}]`);
     if (audioLabels.length) args.push('-map', '[audio]', '-c:a', 'aac', '-b:a', '192k', '-ar', '48000');
     else args.push('-an');
     args.push(...videoEncoding(timeline.quality), '-r', String(timeline.fps), '-t', String(timeline.duration));
