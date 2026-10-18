@@ -7,6 +7,7 @@ import { createHash } from 'node:crypto';
 import { once } from 'node:events';
 import { ROOT, resolveTemplate } from './catalog.mjs';
 import { chromium } from 'playwright';
+import { browserLaunchOptions } from './browser-launch.mjs';
 
 const within = (root, file) => { const rel = relative(root, file); return !rel.startsWith('..') && !isAbsolute(rel); };
 const motionAssetRoots = ['vendor/onetake/lib', 'vendor/motion-web', 'vendor/eac-motion'];
@@ -65,7 +66,7 @@ export async function renderTemplate({ templateId, htmlPath, outputPath, duratio
   const errors = [];
   const missing = new Set();
   try {
-    browser = await chromium.launch({ ...(process.env.EAC_BROWSER ? { executablePath: process.env.EAC_BROWSER } : { channel: 'msedge' }), headless: true });
+    browser = await chromium.launch({ ...browserLaunchOptions(), headless: true });
     const abort = () => { void browser.close(); };
     signal?.addEventListener('abort', abort, { once: true });
     try {

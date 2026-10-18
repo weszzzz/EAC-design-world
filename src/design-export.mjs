@@ -1,4 +1,5 @@
 import { chromium } from 'playwright';
+import { browserLaunchOptions } from './browser-launch.mjs';
 import { mkdir, rename, rm } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { randomUUID } from 'node:crypto';
@@ -14,7 +15,7 @@ export async function exportDesignArtifact({ store, id, format, revision, origin
   await mkdir(directory, { recursive: true });
   const output = resolve(directory, `v${source.revision}.${format}`);
   const staged = resolve(directory, `.${randomUUID()}.${format}`);
-  const browser = await chromium.launch({ ...(process.env.EAC_BROWSER ? { executablePath: process.env.EAC_BROWSER } : { channel: 'msedge' }), headless: true });
+  const browser = await chromium.launch({ ...browserLaunchOptions(), headless: true });
   const abort = () => { void browser.close(); };
   signal?.addEventListener('abort', abort, { once: true });
   try {

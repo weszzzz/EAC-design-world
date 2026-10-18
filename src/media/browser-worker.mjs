@@ -1,4 +1,5 @@
 import { readFile, writeFile } from 'node:fs/promises';
+import { browserLaunchOptions } from '../browser-launch.mjs';
 import { join } from 'node:path';
 // Install cancellation before loading Playwright; early IPC messages must not be lost.
 let context;
@@ -22,11 +23,10 @@ try {
   const { url, actions, width, height, directory } = JSON.parse(await readFile(process.argv[2], 'utf8'));
   const { chromium } = await import('playwright');
   if (cancelled) throw new Error('Browser recording aborted');
-  const executablePath = process.env.EAC_BROWSER || process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH;
   context = await chromium.launchPersistentContext(join(directory, 'profile'), {
     headless: true, timeout: 30_000,
     viewport: { width, height }, deviceScaleFactor: 1,
-    ...(executablePath ? { executablePath } : process.platform === 'win32' ? { channel: 'msedge' } : {}),
+    ...browserLaunchOptions(),
   });
   if (cancelled) throw new Error('Browser recording aborted');
   const page = context.pages()[0] || await context.newPage();

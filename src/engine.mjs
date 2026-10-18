@@ -1,5 +1,6 @@
 import { mkdir, readFile, writeFile, realpath, stat } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
+import { browserDescription, browserExecutablePath } from './browser-launch.mjs';
 import { resolve, join, extname, basename, relative, isAbsolute } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
@@ -63,10 +64,7 @@ export async function createEngine({ dataDir } = {}) {
         capabilityCache.set(name, spawnSync(name, ['-version'], { windowsHide: true, timeout: 5000 }).status === 0);
       }
     }
-    const browserPath = process.env.EAC_BROWSER || [
-      'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe',
-      'C:/Program Files/Google/Chrome/Application/chrome.exe'
-    ].find(existsSync);
+    const browserPath = browserExecutablePath();
     if (!capabilityCache.has('transcript')) {
       const { transcriptCapabilities } = await import('./transcript.mjs');
       capabilityCache.set('transcript', await transcriptCapabilities());
@@ -74,7 +72,7 @@ export async function createEngine({ dataDir } = {}) {
     const transcript = capabilityCache.get('transcript');
     return [
       { id: 'ffmpeg', name: '剪辑与编码', available: capabilityCache.get('ffmpeg') && capabilityCache.get('ffprobe'), detail: 'FFmpeg / FFprobe 本地执行' },
-      { id: 'browser', name: '真实网页录制', available: Boolean(browserPath), detail: browserPath || '配置 EAC_BROWSER 或安装 Edge' },
+      { id: 'browser', name: '真实网页录制', available: Boolean(browserPath) || process.platform !== 'win32', detail: browserDescription() },
       { id: 'desktop', name: '桌面录制', available: process.platform === 'win32' && capabilityCache.get('ffmpeg'), detail: 'Windows gdigrab，按任务时长录制' },
       { id: 'voice', name: '本地旁白', available: process.platform === 'win32', detail: 'Windows SAPI；声线质量取决于已安装语音' },
       { id: 'music', name: '原创器乐', available: true, detail: '共享节拍网格的本地合成器' },
